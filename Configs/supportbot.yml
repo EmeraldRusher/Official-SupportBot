@@ -4,15 +4,16 @@
 #     <___/`___||  _/|  _/\___/|_|   |_|  |___/\___/ |_|
 #                |_|  |_|
 #
-#           SupportBot created by Emerald Development
+#           SupportBot created by Emerald Services
 #           Installed with MIT License
 #
-#           Discord Support: https://dsc.gg/emerald-dev
-#           Official Documentation: https://github.com/Emerald-Services/SupportBot/wiki
-#           Third-Party Documentation: COMING SOON
+#           Discord Support: https://discord.gg/emeraldsrv
+#           Official Documentation: https://docs.emeraldsrv.com
+#           Addons Marketplace: https://community.emeraldsrv.com
+#
+#           SupportBot Configuration (supportbot.yml)
 
-SupportBot_Version: "v8.2"
-# Do not change the version number
+SupportBot_Version: "v8.3"
 
 # -------------------------
 #   General
@@ -20,8 +21,7 @@ SupportBot_Version: "v8.2"
 
 General:
   Name: "SupportBot"
-  Token: "BOT_TOKEN_HERE"
-  # To get your Discord Bot Token, Go to https://discord.com/developers/applications
+  Token: "BOT_TOKEN"
 
   Addons:
     Enabled: true
@@ -33,11 +33,16 @@ General:
 Activity:
   Status: "SupportBot v8"
   Type: "Competing"
-  # The Type can either be Playing, Watching, Listening or Competing
   StreamingURL: "https://www.twitch.tv/YOUR_TWITCH_NAME"
-  # Set The Type to "Streaming" for a streaming status!
 
-  # You can update the activity via Discord using: /settings
+  # Available Types:
+  # Playing
+  # Watching
+  # Listening
+  # Competing
+  # Streaming (URL required)
+
+  # You can also update the activity via Discord using: /settings
 
 # -------------------------
 #  Embeds
@@ -45,12 +50,14 @@ Activity:
 
 Embed:
   Colours:
-    General: 0x0cc559 # 0x<hexcode>
-    Success: 0x04b545 # 0x<hexcode>
-    Error: 0xd13030 # 0x<hexcode>
-    Warn: 0xfca117 # 0x<hexcode>
+    General: 0x0cc559
+    Success: 0x04b545
+    Error: 0xd13030
+    Warn: 0xfca117
 
   Footer: "SupportBot | Developed by Emerald Development"
+
+  # Use 0x<hexcode>  to change the colour of the embeds.
 
 # -------------------------
 #  Roles
@@ -62,12 +69,14 @@ Roles:
     Role: "ROLE_ID"
 
   StaffMember:
-    Staff: "STAFF_ROLE_ID"
-    Admin: "ADMIN_ROLE_ID"
+    Staff: "ROLE_ID"
+    Admin: "ROLE_ID"
+    Moderator: "ROLE_ID"
 
-  ModRoles:
-    Muted: "MUTED_ROLE_ID"
-    Blacklisted: "BLACKLISTED_ROLE_ID"
+  Mod:
+    AllowSupportStaff: false
+
+  # Allow Support Staff to use the /mod command. (More in detail customisation in commands.yml)
 
 # ----------------------------
 #  System Messages
@@ -75,18 +84,18 @@ Roles:
 
 Welcome: 
   Enabled: true
-  Channel: "WELCOME_CHANNEL_ID"
+  Channel: "JOIN_CHANNEL_ID"
 
 Leave: 
   Enabled: true
-  Channel: "LEAVE_CHANNEL_ID"
+  Channel: "JOIN_CHANNEL_ID"
 
 # ----------------------------
 #  Suggestions
 # ----------------------------
 
 Suggestions:
-  Channel: "SUGGEST_CHANNEL_ID"
+  Channel: "SUGGESTIONS_CHANNEL_ID"
   UpvoteEmoji: "✅"
   DownvoteEmoji: "❌"
 
@@ -94,6 +103,7 @@ Suggestions:
   DownvoteTitle: "No"
 
   OwnSuggestion: true
+
   # If false this will not allow the user to vote for a suggestion they created
   # If true this will allow the user to vote for a suggestion they created
 
@@ -120,23 +130,27 @@ Suggestions:
 #  Tickets
 # -------------------------
 
-Ticket:
-  TicketType: "channels" # Choose how you want tickets to be created.
-  # Options:
-  # channels - Tickets will be created as channels in the 
-  # threads - Tickets will be created as threads through the "TicketHome"
+VoiceTickets:
+  Name: "%username%'s VC" 
+  Category: "VOICEE_CATEGORY_ID"
 
-  # For TicketType "Threads"
+Ticket:
+  TicketType: "channels" 
+
+  # Available TicketTypes:
+  # channels - Tickets will be created as channels in the TicketChannelsCategory
+  # threads - Tickets will be created as threads through the "TicketHome" channel.
+
   TicketHome: "TICKETHOME_CHANNEL_ID" 
+
   # What is TicketHome?
   # - Channel where the Ticket creation panel is sent.
   # - Channel where ticket threads are made. (only if ticket threads is enabled above.)
 
-  # For TicketType "Channels"
-  TicketChannelsCategory: "TICKET_CATEGORY_ID" # if Type is set to channels
-  TicketChannelsCategory2: "BACKUP_TICKET_CATEGORY_ID" # This will be used if the first category has reached the max channel limit.
-  TicketArchiveCategory: "ARCHIVE_TICKET_CATEGORY_ID"
-
+  # For TicketType: channels
+  TicketChannelsCategory: "TICKETCHANNEL_CATEGORY_ID" 
+  TicketChannelsCategory2: "TICKETCHANNEL_BACKUP_CATEGORY_ID" # This will be used if the first category has reached the max channel limit.
+  TicketArchiveCategory: "ARCHIVE_CATEGORY_ID"
   # ---
 
   Channel: "ticket-" # The prefix for ticket channel names
@@ -144,15 +158,15 @@ Ticket:
   DMTranscripts: true
   TicketReason: true
   # If ticket reason is set to false, It will not prompt to create a reason
+
   TicketSubject: "description"
+
+  # Available TicketSubjects:
   # "description" will display the ticket reason within the channel description
   # "embed" will display the ticket reason within the ticket embed
+
   Timeout: 5
   # Set to true to allow all staff to access the ticket
-
-  Log:
-    TicketDataLog: "TICKET_LOG_ID"
-    TickeDataTitle: "Ticket Data"
 
   Close:
     StaffOnly: true
@@ -164,7 +178,7 @@ Ticket:
 
     Title: "Are you sure you want to close this ticket?"
 
-    # Available Button Styles
+    # Available Button Styles:
     # 1 - Blurple
     # 2 - Grey
     # 3 - Green
@@ -176,7 +190,7 @@ Ticket:
   ClaimTickets:
     Enabled: true
     Channel: "CLAIM_TICKETS_CHANNEL_ID" 
-    # Channel name or Channel ID
+    # Channel where the ticket assignments are sent for staff to claim.
     
     ClaimAcceptTime: 120000
     # How long the assigned user has to accept the ticket before it gets re-assigned to someone else.
@@ -196,10 +210,34 @@ Ticket:
     # 3 - Green
     # 4 - Red
 
+  ReviewSystem:
+    Enabled: true                
+    Channel: "REVIEW_CHANNEL_ID"
+    UseModal: true
+
+  Questions:
+    Enabled: true  # Set to false to disable ticket questions
+    List:
+      - "Please provide your account email?"
+      - "What is the nature of your issue?"
+      - "Have you tried resolving the issue yourself?"
+
+  Log:
+    TicketDataLog: "TICKET_DATA_LOG_ID"
+    TickeDataTitle: "Ticket Data"
+    TicketBlacklistLog: "TICKET_BLACKLIST_LOG_ID"
+
 # -------------------------
 #  Buttons
 # -------------------------
 Buttons:
+  General:
+    Delete: "🗑️"
+    DeleteStyle: "4"
+
+  Voice:
+    TicketDeleteText: "Delete Voice Channel"
+
   Tickets:
     ClaimEmoji: "🧑‍💻"
     ClaimStyle: "1"
@@ -230,13 +268,22 @@ SelectMenus:
     ArchiveEmoji: "♻️"
     LockEmoji: "🔐"
     RenameEmoji: "🏷️"
+    VCEmoji: "🔊"
 
     EnableInvitesEmoji: "📤"
     DisableInvitesEmoji: "📥"
 
 # -------------------------
-#  Misc
+#  Logging
 # -------------------------
+
+MessageDelete:
+  Channel: "MESSAGE_DELETE_CHANNEL_ID""
+  Colour: "#d92525"
+
+MessageUpdate:
+  Channel: "MESSAGE_UPDATE_CHANNEL_ID"
+  Colour: "#f2a024"
 
 Translate:
   TranslateLog: "TRANSLATE_LOG_ID"

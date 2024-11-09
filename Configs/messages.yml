@@ -7,11 +7,15 @@
 #           SupportBot created by Emerald Services
 #           Installed with MIT License
 #
-#           Discord Support: https://dsc.gg/emerald-dev
-#           Official Documentation: https://emeraldsrv.com/wiki
-#           Third-Party Documentation: https://emeraldsrv.com/third-party
+#           Discord Support: https://discord.gg/emeraldsrv
+#           Official Documentation: https://docs.emeraldsrv.com
+#           Addons Marketplace: https://community.emeraldsrv.com
 #
-#           Messages Configuration
+#           Messages Configuration (messages.yml)
+
+# ----------------------------
+# Info Command
+# ----------------------------
 
 Info:
   Title: "About Us"
@@ -19,6 +23,10 @@ Info:
   Button: "Visit Site"
   URL: "https://docs.emeraldsrv.com"
   Colour: "#f74343"
+
+# ----------------------------
+# Welcome/Leave Messages
+# ----------------------------
 
 Welcome:
   Embed:
@@ -40,11 +48,19 @@ Leave:
     ImageEnabled: false
     ImageURL: "https://animagelink.png/"
 
+# ----------------------------
+# Suggestion Messages
+# ----------------------------
+
 Suggestions:
   Sent_Title: "Suggestion Sent!"
   Sent: ":white_check_mark: **You have successfully sent a suggestion.**"
   NoSelfVote: ":x: **You cannot vote on your own suggestion.**"
   RemoveVoteButton: "Remove Vote"
+
+# ----------------------------
+# Ticket Messages
+# ----------------------------
 
 Ticket:
 
@@ -95,6 +111,44 @@ Ticket:
     ReassigningTitle: "Reassigning!..."
     ReassigningMessage: "<@%user%> did not claim the ticket. **Reassigning...**"
 
+  TicketQuestions:
+    Details: 
+      Title: "Ticket Details"
+      Description: "Questions by <@%user%>" # Use <@%user%> to display the username.
+
+# ----------------------------
+# Review Messages
+# ----------------------------
+
+ReviewSystem:
+  Rate:
+    Title: "Review us!"
+    Description: "Please rate our support for this ticket (1-5 stars)."
+
+  Stars:
+    One: "⭐ 1 Star"
+    Two: "⭐⭐ 2 Stars"
+    Three: "⭐⭐⭐ 3 Stars"
+    Four: "⭐⭐⭐⭐ 4 Stars"
+    Five: "⭐⭐⭐⭐⭐ 5 Stars"
+
+  Comment:
+    Title: "Write a comment."
+    Description: "Write a comment about your experience."
+
+  ReviewEmbed:
+    Title: "Ticket Review"
+    CommentTitle: "Comment"
+    RatingTitle: "Rating"
+    ReviewedStaffTitle: "Reviewed Staff:"
+    ReviewedByTitle: "Reviewed By:"
+    ReviewEmoji: "⭐"
+    Color: "#f7a943"
+
+# ----------------------------
+# Profile Messages
+# ----------------------------
+
 TicketStats: 
   OpenTickets: "✅ Open Tickets"
   TotalTickets: "🎫 Total Tickets"
@@ -102,9 +156,45 @@ TicketStats:
 
   Title: "Your Ticket Stats"
 
+# ----------------------------
+# Mod Command Messages
+# ----------------------------
+
+Mod:
+  
+  TicketBlacklist:
+    Add:
+      Description: "Add a user to the ticket blacklist"
+      UserDescription: "User to blacklist"
+      AlreadyBlacklisted: ":x: {userTag} is already blacklisted."
+      Success: ":white_check_mark: {userTag} has been added to the blacklist. They can no longer use the ticket system."
+
+    Remove:
+      Description: "Remove a user from the ticket blacklist"
+      UserDescription: "User to remove from blacklist"
+      NotBlacklisted: ":x: {userTag} is not blacklisted."
+      Success: ":white_check_mark: {userTag} has been removed from the blacklist. They can now use the ticket system again."
+
+    View:
+      Description: "View the list of all blacklisted users"
+      NoBlacklistedUsers: ":information_source: There are currently no users on the blacklist."
+
+
+# ----------------------------
+# Logging Messages
+# ----------------------------
+
 TicketLog:
   Title: "Ticket Log"
   Colour: "#0cc559"
+
+TicketBlacklistLog:
+  Title: "Ticket Blacklist Log"
+  Colour: "#0cc559"
+
+# ----------------------------
+# Misc Messages
+# ----------------------------
 
 AddUser:
   NotInTicket_Title: "Ticket Invitation"
@@ -171,11 +261,13 @@ ForceAddUser:
   Error_Adding: "There was an error adding the user to the ticket."
 
 Error:
-  IncorrectPerms: ":x: **Err!** You do not have the correct permissions to use this."
-  InvalidChannel: ":x: **Err!** Channel not found. Please create it!"
-  UserNotFound: ":x: **Err!** This user doesn't exist, Are they in this server?"
-  NoValidTicket: ":warning: You cannot execute this command here."
-  TicketExists: ":warning: This ticket cannot be opened, It already exists!"
+  IncorrectPermissions: ":x: **Error!** You do not have the correct permissions to use this command."
+  MissingChannel: ":x: **Error!** Required channel not found. Please ensure it is set up correctly!"
+  UserNotFound: ":x: **Error!** Specified user not found. Please check if they are in this server."
+  CommandNotAllowedHere: ":warning: This command cannot be used in this channel."
+  EntryAlreadyExists: ":warning: Cannot complete the action, as the entry already exists."
+  EntryDoesNotExist: ":warning: Cannot complete the action, as the entry does not exist."
+  ActionFailed: ":x: **Error!** An error occurred while processing your request. Please try again later."
 
 
 

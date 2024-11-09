@@ -28,19 +28,20 @@ module.exports = new Command({
       let SupportStaff = await getRole(supportbot.Roles.StaffMember.Staff, interaction.guild);
       let Admin = await getRole(supportbot.Roles.StaffMember.Admin, interaction.guild);
 
-      if (!SupportStaff || !Admin)
-        return interaction.reply("Some roles seem to be missing!\nPlease check for errors when starting the bot.");
+      if (!SupportStaff || !Admin) {
+        return interaction.reply("Some roles seem to be missing! Please check for errors when starting the bot.");
+      }
 
       const NoPerms = new Discord.EmbedBuilder()
         .setTitle("Invalid Permissions!")
         .setDescription(`${msgconfig.Error.IncorrectPerms}\n\nRole Required: \`${supportbot.Roles.StaffMember.Staff}\` or \`${supportbot.Roles.StaffMember.Admin}\``)
-        .setColor(supportbot.Embed.Colours.Warn);
+        .setColor(supportbot.Embed.Colours.Warn); 
 
-      if (!interaction.member.roles.cache.has(SupportStaff.id) && !interaction.member.roles.cache.has(Admin.id))
+      if (!interaction.member.roles.cache.has(SupportStaff.id) && !interaction.member.roles.cache.has(Admin.id)) {
         return interaction.reply({ embeds: [NoPerms] });
+      }
     }
 
-    // Check if it's a thread or channel based on config
     if (
       (supportbot.Ticket.TicketType === "threads" && interaction.channel.type !== Discord.ChannelType.PrivateThread) ||
       (supportbot.Ticket.TicketType === "channels" && interaction.channel.type !== Discord.ChannelType.GuildText)
@@ -48,14 +49,22 @@ module.exports = new Command({
       const NotTicketChannel = new Discord.EmbedBuilder()
         .setTitle("Invalid Channel!")
         .setDescription(`This command can only be used in a ${supportbot.Ticket.TicketType === "threads" ? "ticket thread" : "ticket channel"}.`)
-        .setColor(supportbot.Embed.Colours.Warn);
+        .setColor(supportbot.Embed.Colours.Warn); // Ensure valid color
 
       return interaction.reply({ embeds: [NotTicketChannel], ephemeral: true });
     }
 
-    await interaction.deferReply();
+    await interaction.deferReply(); // Deferring to avoid double replies
 
-    let tickets = JSON.parse(fs.readFileSync("./Data/TicketData.json", "utf8"));
+    // Reading TicketData.json once for efficiency
+    let tickets;
+    try {
+      tickets = JSON.parse(fs.readFileSync("./Data/TicketData.json", "utf8"));
+    } catch (err) {
+      console.error('Error reading ticket data file:', err);
+      return interaction.followUp({ content: "There was an error loading ticket data." });
+    }
+
     let TicketData = tickets.tickets.findIndex((t) => t.id === interaction.channel.id);
     let ticket = tickets.tickets[TicketData];
 
@@ -63,43 +72,111 @@ module.exports = new Command({
       const Exists = new Discord.EmbedBuilder()
         .setTitle("No Ticket Found!")
         .setDescription(msgconfig.Error.NoValidTicket)
-        .setColor(supportbot.Embed.Colours.Warn);
+        .setColor(supportbot.Embed.Colours.Warn); // Ensure valid color
       return interaction.followUp({ embeds: [Exists] });
     }
 
     let reason = interaction.options?.getString("reason") || "No Reason Provided.";
 
-    const CloseButton = new Discord.ButtonBuilder()
-      .setCustomId("confirmCloseTicket")
-      .setLabel(supportbot.Ticket.Close.Confirmation_Button)
-      .setEmoji(supportbot.Ticket.Close.Confirmation_Emoji)
-      .setStyle(supportbot.Ticket.Close.Confirmation_Style);
+    if (supportbot.Ticket.ReviewSystem.Enabled) {
+      const rating = await collectReviewRating(interaction);
+      const comment = await collectReviewComment(interaction);
 
-    const row = new Discord.ActionRowBuilder().addComponents(CloseButton);
+      const reviewChannel = await getChannel(supportbot.Ticket.ReviewSystem.Channel, interaction.guild);
+      const reviewer = supportbot.Ticket.ClaimTickets ? `<@${ticket.claimedBy}>` : null;
 
-    const CloseTicketRequest = new Discord.EmbedBuilder()
-      .setTitle(`**${supportbot.Ticket.Close.Title}**`)
-      .setDescription(`${msgconfig.Ticket.ConfirmClose}`)
-      .setColor(supportbot.Embed.Colours.General);
+      const reviewEmbed = new Discord.EmbedBuilder()
+        .setTitle(msgconfig.ReviewSystem.ReviewEmbed.Title)
+        .addFields(
+          {
+            name: msgconfig.ReviewSystem.ReviewEmbed.RatingTitle,
+            value: `${msgconfig.ReviewSystem.ReviewEmbed.ReviewEmoji.repeat(rating)}`,
+            inline: false
+          },
+          {
+            name: msgconfig.ReviewSystem.ReviewEmbed.CommentTitle,
+            value: `\`\`\`${comment}\`\`\``,
+            inline: false
+          }
+        )
+        .setColor(msgconfig.ReviewSystem.ReviewEmbed.Color);
 
-    await interaction.followUp({
-      embeds: [CloseTicketRequest],
-      components: [row],
-    });
+      if (supportbot.Ticket.ClaimTickets.Enabled) {
+        reviewEmbed.setDescription(
+          `**${msgconfig.ReviewSystem.ReviewEmbed.ReviewedStaffTitle}** ${reviewer}\n**${msgconfig.ReviewSystem.ReviewEmbed.ReviewedByTitle}** <@${interaction.user.id}>` || `N/A`
+        );
+      } else {
+        reviewEmbed.setDescription(
+          `**${msgconfig.ReviewSystem.ReviewEmbed.ReviewedByTitle}** <@${interaction.user.id}>`
+        );
+      }
 
-    const filter = (btnInteraction) => btnInteraction.customId === "confirmCloseTicket" && btnInteraction.user.id === interaction.user.id;
+      if (reviewChannel) {
+        await reviewChannel.send({ embeds: [reviewEmbed] });
+      }
 
-    interaction.channel.awaitMessageComponent({ filter, time: 20000 })
-      .then(async (btnInteraction) => {
-        await handleCloseTicket(interaction, reason, ticket, TicketData);
-        await btnInteraction.reply({ content: "Ticket successfully closed.", ephemeral: true });
-      })
-      .catch((err) => {
-        interaction.followUp(`${msgconfig.Ticket.CloseTimeout}`);
-        console.error(err);
-      });
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.followUp({ embeds: [reviewEmbed] });
+      }
+
+      await handleCloseTicket(interaction, reason, ticket, TicketData);
+    } else {
+      await handleCloseTicket(interaction, reason, ticket, TicketData);
+    }
   },
 });
+
+async function collectReviewRating(interaction) {
+  const reviewPrompt = new Discord.EmbedBuilder()
+    .setTitle(msgconfig.ReviewSystem.Rate.Title)
+    .setDescription(msgconfig.ReviewSystem.Rate.Description)
+    .setColor(supportbot.Embed.Colours.General); // Ensure valid color
+
+  const stars = new Discord.ActionRowBuilder().addComponents(
+    new Discord.StringSelectMenuBuilder()
+      .setCustomId("starRating")
+      .setPlaceholder("Select a rating")
+      .addOptions([
+        { label: msgconfig.ReviewSystem.Stars.One, value: "1" },
+        { label: msgconfig.ReviewSystem.Stars.Two, value: "2" },
+        { label: msgconfig.ReviewSystem.Stars.Three, value: "3" },
+        { label: msgconfig.ReviewSystem.Stars.Four, value: "4" },
+        { label: msgconfig.ReviewSystem.Stars.Five, value: "5" },
+      ])
+  );
+
+  await interaction.followUp({
+    embeds: [reviewPrompt],
+    components: [stars],
+    ephemeral: true,
+  });
+
+  const starRating = await interaction.channel.awaitMessageComponent({
+    componentType: Discord.ComponentType.StringSelect,
+    filter: (i) => i.customId === "starRating" && i.user.id === interaction.user.id,
+    time: 30000,
+  });
+
+  await starRating.deferUpdate();
+  return starRating.values[0];
+}
+
+async function collectReviewComment(interaction) {
+  const commentPrompt = new Discord.EmbedBuilder()
+    .setTitle(msgconfig.ReviewSystem.Comment.Title)
+    .setDescription(msgconfig.ReviewSystem.Comment.Description)
+    .setColor(supportbot.Embed.Colours.General); // Ensure valid color
+
+  await interaction.followUp({
+    embeds: [commentPrompt],
+    ephemeral: true,
+  });
+
+  const filter = (response) => response.author.id === interaction.user.id;
+  const commentCollection = await interaction.channel.awaitMessages({ filter, max: 1, time: 30000 });
+  const comment = commentCollection.first()?.content;
+  return comment && comment.toLowerCase() !== "no" ? comment : "No Comment Provided";
+}
 
 async function handleCloseTicket(interaction, reason, ticket, TicketData) {
   const { getChannel } = interaction.client;
@@ -109,196 +186,65 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
   let transcriptChannel = await getChannel(supportbot.Ticket.Log.TicketDataLog, interaction.guild);
 
   if (!transcriptChannel)
-    return interaction.followUp("Some Channels seem to be missing!");
+    return console.log("Ticket Log Missing");
 
   try {
     tickets.tickets[TicketData].open = false;
-    fs.writeFileSync(
-      "./Data/TicketData.json",
-      JSON.stringify(tickets, null, 4),
-      (err) => {
-        if (err) console.error(err);
-      }
-    );
+    fs.writeFileSync("./Data/TicketData.json", JSON.stringify(tickets, null, 4));
 
     const transcriptEmbed = new Discord.EmbedBuilder()
       .setTitle(msgconfig.TicketLog.Title)
-      .setColor(msgconfig.TicketLog.Colour)
-      .setFooter({
-        text: supportbot.Embed.Footer,
-        iconURL: interaction.user.displayAvatarURL(),
-      })
-      .addFields(
-        { name: "Ticket", value: `${interaction.channel.name} (${interaction.channel.id})` },
-        { name: "User", value: `${tUser?.username || "N/A"}#${tUser?.discriminator || "N/A"} (${tUser?.id || ticket.user})` },
-        { name: "Closed By", value: interaction.user.tag },
-        { name: "Reason", value: reason }
-      );
+      .setColor(msgconfig.TicketLog.Colour) // Ensure valid color
+      .setFooter({ text: supportbot.Embed.Footer, iconURL: interaction.user.displayAvatarURL() })
+      .setDescription(`> **Ticket:** ${interaction.channel.name} (\`${interaction.channel.id}\`)\n> **User:** ${tUser?.username || "N/A"}#${tUser?.discriminator || "N/A"} (\`${tUser?.id || ticket.user}\`)\n> **Closed by:** <@${interaction.user.id}>`)
+      .addFields({ name: "Reason", value: `\`\`\`${reason}\`\`\``, inline: true });
 
     let msgs = await interaction.channel.messages.fetch({ limit: 100 });
-    let html = `
-      <html>
-        <head>
-          <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-          <style>
-            body {
-              background-color: #1a1a1a;
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              color: white;
-              margin: 0;
-              padding: 0;
-              height: 100%;
-              display: flex;
-              flex-direction: column;
-            }
-            .container {
-              backdrop-filter: blur(10px);
-              background-color: rgba(0, 128, 0, 0.3);
-              border-radius: 15px;
-              padding: 20px;
-              margin: 20px;
-              box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-              flex-grow: 1;
-              display: flex;
-              flex-direction: column;
-              max-width: 1000px;
-              width: 100%;
-              margin: auto;
-            }
-            .message {
-              display: flex;
-              align-items: center;
-              margin-bottom: 10px;
-              padding: 10px;
-              background-color: rgba(255, 255, 255, 0.1);
-              border-radius: 10px;
-            }
-            .avatar {
-              width: 40px;
-              height: 40px;
-              border-radius: 50%;
-              margin-right: 10px;
-            }
-            .content {
-              flex: 1;
-            }
-            .username {
-              font-weight: bold;
-            }
-            .timestamp {
-              font-size: 0.8em;
-              color: #bbb;
-            }
-            .download-button {
-              background-color: #4CAF50;
-              color: white;
-              padding: 10px 20px;
-              text-align: center;
-              text-decoration: none;
-              display: inline-block;
-              font-size: 16px;
-              margin-top: 20px;
-              border-radius: 5px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1 class="text-2xl font-bold mb-4">Ticket Transcript</h1>
-            <p><strong>Server Name:</strong> ${interaction.guild.name}</p>
-            <p><strong>Ticket:</strong> ${interaction.channel.name}</p>
-            <p><strong>Messages:</strong> ${msgs.size} Messages</p>
-            <div class="mt-4">
-    `;
-
-    msgs = msgs.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-    msgs.forEach((msg) => {
-      if (msg.content) {
-        html += `
-          <div class="message">
-            <img class="avatar" src="${msg.author.displayAvatarURL()}" alt="Avatar">
-            <div class="content">
-              <p class="username">${msg.author.tag}</p>
-              <p class="timestamp">${msg.createdAt.toLocaleString()}</p>
-              <p>${convertMarkdownToHTML(msg.content)}</p>
-            </div>
-          </div>
-        `;
-      }
-    });
+    let html = createTranscriptHTML(interaction, msgs);
 
     const fileName = `${interaction.channel.name}.html`;
+    let file = new Discord.AttachmentBuilder(Buffer.from(html), { name: `SPOILER_${fileName}` });
 
-    html += `
-            </div>
-            <a href="${fileName}" download class="download-button">Download Transcript</a>
-          </div>
-        </body>
-      </html>
-    `;
-
-    let file = new Discord.AttachmentBuilder(
-      Buffer.from(html),
-      { name: fileName }
-    );
-
-    await transcriptChannel
-      .send({ embeds: [transcriptEmbed], files: [file] })
-      .catch((err) => {
-        console.error(err);
-      });
-
-    if (supportbot.Ticket.DMTranscripts) {
-      await tUser
-        ?.send({ embeds: [transcriptEmbed], files: [file] })
-        .catch((err) => {
-          console.error(err);
-        });
-
-      if (ticket.subUsers) {
-        ticket.subUsers.forEach(async (subUser) => {
-          await interaction.client.users.cache
-            .get(subUser)
-            ?.send({ embeds: [transcriptEmbed], files: [file] });
-        });
-      }
-    }
-
-    await interaction.channel.delete().catch((error) => {
-      console.error(error);
-      if (error.code !== Discord.Constants.APIErrors.UNKNOWN_CHANNEL) {
-        console.error("Failed to delete the interaction:", error);
-      }
+    transcriptChannel.send({
+      embeds: [transcriptEmbed],
+      files: [file],
     });
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.log("Error closing ticket:", err);
   }
+
+  await interaction.channel.delete();
 }
 
-function convertMarkdownToHTML(text) {
-  // Convert **bold** to <strong>bold</strong>
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+function createTranscriptHTML(interaction, msgs) {
+  let html = `
+  <html>
+  <head>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      .message { padding: 10px; margin: 5px 0; border: 1px solid #ddd; }
+      .username { font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <h1>Ticket Transcript</h1>
+    <h2>Ticket: ${interaction.channel.name}</h2>
+    <h3>User: ${interaction.user.tag}</h3>
+    <div id="messages">
+  `;
 
-  // Convert *italic* to <em>italic</em>
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  msgs.reverse().forEach((msg) => {
+    html += `
+    <div class="message">
+      <span class="username">${msg.author.tag}</span>: ${msg.content}
+    </div>
+    `;
+  });
 
-  // Convert __underline__ to <u>underline</u>
-  text = text.replace(/__(.*?)__/g, '<u>$1</u>');
-
-  // Convert ~~strikethrough~~ to <s>strikethrough</s>
-  text = text.replace(/~~(.*?)~~/g, '<s>$1</s>');
-
-  // Convert inline code `code` to <code>code</code>
-  text = text.replace(/`(.*?)`/g, '<code>$1</code>');
-
-  // Convert blockquotes > quote to <blockquote>quote</blockquote>
-  text = text.replace(/^> (.*?$)/gm, '<blockquote>$1</blockquote>');
-
-  // Convert multiline code blocks ```code``` to <pre><code>code</code></pre>
-  text = text.replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>');
-
-  // Convert line breaks to <br>
-  text = text.replace(/\n/g, '<br>');
-
-  return text;
+  html += `
+    </div>
+  </body>
+  </html>
+  `;
+  return html;
 }

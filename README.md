@@ -13,11 +13,11 @@
 </a>
 
 <a href="https://github.com/discordjs">
-    <img src="https://img.shields.io/badge/discord.js-v13.6.x-blue.svg?style=for-the-badge&logo=javascript.svg" alt="shield.png">
+    <img src="https://img.shields.io/badge/DISCORD.JS%20-%20v14-blue?style=for-the-badge" alt="shield.png">
 </a>
 
 <a href="https://github.com/nodejs/node">
-    <img src="https://img.shields.io/badge/node.js-v16.14.x-green.svg?style=for-the-badge&logo=node" alt="shield.png">
+    <img src="https://img.shields.io/badge/NODE.JS%20-%20v20.x-green?style=for-the-badge" alt="shield.png">
 </a>
 
 <a href="https://github.com/Emerald-Services/SupportBot/releases">
@@ -83,6 +83,14 @@ Released under the [MIT](https://opensource.org/licenses/MIT) license.
 <a href="https://github.com/Emerald-Services/SupportBot/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=Emerald-Services/SupportBot">
 </a>
+
+## Hosting
+
+You can use our [Pterodactyl egg](https://github.com/Emerald-Services/Pterodactyl-Egg) to host it on your own panel. We currently don't offer hosting for you, altough we might add this in the future.
+If you don't know how to install pterodactyl, you could always host it on replit:
+
+[![Run on Repl.it](https://repl.it/badge/github/ItsNyoty/IKI-bot)]([https://repl.it/github/ItsNyoty/iki](https://repl.it/github/Emerald-Services/SupportBot
+)
 
 
 

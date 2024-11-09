@@ -7,13 +7,11 @@
 #           SupportBot created by Emerald Services
 #           Installed with MIT License
 #
-#           Discord Support: https://dsc.gg/emerald-dev
-#           Official Documentation: https://emeraldsrv.dev/wiki
-#           Third-Party Documentation: https://emeraldsrv.dev/third-party
+#           Discord Support: https://discord.gg/emeraldsrv
+#           Official Documentation: https://docs.emeraldsrv.com
+#           Addons Marketplace: https://community.emeraldsrv.com
 #
-#           Command Configuration
-
-# If you don't want to mess with this configuration, You can manage commands via Discord Settings the Intregations.
+#           Commands Configuration (commands.yml)
 
 Help:
   Command: "help"
@@ -98,6 +96,32 @@ Ping:
   Description: "Pong."
   Permission: ["SendMessages"]
   Enabled: true
+
+# ---------------------------------------
+#   Bot Moderator Commands
+# ---------------------------------------
+
+Mod:
+  Command: "mod"
+  Description: "Execute a moderation action."
+  Permission: ["BanMembers", "KickMembers"]
+  Enabled: true
+
+  TicketBlacklist:
+    Command: "ticket-blacklist"
+    Description: "Blacklist a user from creating Tickets."
+
+    Add: 
+      Command: "add"
+      Description: "Add a user to the blacklist."
+      
+    Remove:
+      Command: "remove"
+      Description: "Remove a user from the blacklist."
+
+    View:
+      Command: "view"
+      Description: "View all blacklisted users."
 
 # ---------------------------------------
 #   Bot Administrator Commands

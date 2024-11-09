@@ -1,167 +1,479 @@
-// File path: ./commands/embed.js
+const { 
+  ApplicationCommandType, 
+  ApplicationCommandOptionType,
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  EmbedBuilder,
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ButtonStyle,
+  ComponentType
+} = require('discord.js');
+const Command = require('../Structures/Command.js');
+const fs = require('fs');
+const yaml = require('js-yaml');
 
-const fs = require("fs");
-const Discord = require("discord.js");
-const yaml = require("js-yaml");
+const supportbot = yaml.load(fs.readFileSync('./Configs/supportbot.yml', 'utf8'));
+const cmdconfig = yaml.load(fs.readFileSync('./Configs/commands.yml', 'utf8'));
+const msgconfig = yaml.load(fs.readFileSync('./Configs/messages.yml', 'utf8'));
 
-const supportbot = yaml.load(fs.readFileSync("./Configs/supportbot.yml", "utf8"));
-const cmdconfig = yaml.load(fs.readFileSync("./Configs/commands.yml", "utf8"));
-const msgconfig = yaml.load(fs.readFileSync("./Configs/messages.yml", "utf8"));
-
-const Command = require("../Structures/Command.js");
+// Helper function to validate and convert hex color
+function parseColor(color) {
+  if (!color) return 0x5865F2;
+  if (typeof color === 'number') return color;
+  if (typeof color !== 'string') return 0x5865F2;
+  color = color.replace('#', '');
+  if (/^[0-9A-F]{6}$/i.test(color)) {
+    return parseInt(color, 16);
+  }
+  return 0x5865F2;
+}
 
 module.exports = new Command({
   name: cmdconfig.Embed.Command,
   description: cmdconfig.Embed.Description,
-  type: Discord.ApplicationCommandType.ChatInput,
+  type: ApplicationCommandType.ChatInput,
   options: [
     {
-      name: "title",
-      description: "Embed Title",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: true,
-    },
-    {
-      name: "message",
-      description: "Embed Message",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: true,
-    },
-    {
-      name: "color",
-      description: "Embed HEX Color",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "fields",
-      description: "Embed Fields (title|content;title|content;...)",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "thumbnail",
-      description: "Embed Thumbnail URL",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "image",
-      description: "Embed Image URL",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "footer",
-      description: "Embed Footer Text",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "footericon",
-      description: "Embed Footer Icon URL",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "author",
-      description: "Embed Author Name",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "authoricon",
-      description: "Embed Author Icon URL",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "authorurl",
-      description: "Embed Author URL",
-      type: Discord.ApplicationCommandOptionType.String,
-      required: false,
-    },
-    {
-      name: "timestamp",
-      description: "Include Timestamp",
-      type: Discord.ApplicationCommandOptionType.Boolean,
-      required: false,
-    },
-    {
-      name: "inline",
-      description: "Make Fields Inline",
-      type: Discord.ApplicationCommandOptionType.Boolean,
-      required: false,
+      name: 'channel',
+      description: 'Select channel to send the message',
+      type: ApplicationCommandOptionType.Channel,
+      required: true
     }
   ],
   permissions: cmdconfig.Embed.Permission,
 
   async run(interaction) {
+    // Permission check
     const { getRole } = interaction.client;
     let SupportStaff = await getRole(supportbot.Roles.StaffMember.Staff, interaction.guild);
     let Admin = await getRole(supportbot.Roles.StaffMember.Admin, interaction.guild);
 
     if (!SupportStaff || !Admin) {
-      return interaction.reply("Some roles seem to be missing!\nPlease check for errors when starting the bot.");
+      return interaction.reply('Some roles seem to be missing!\nPlease check for errors when starting the bot.');
     }
 
-    const NoPerms = new Discord.EmbedBuilder()
-      .setTitle("Invalid Permissions!")
-      .setDescription(`${msgconfig.Error.IncorrectPerms}\n\nRole Required: \`${supportbot.Roles.StaffMember.Staff}\` or \`${supportbot.Roles.StaffMember.Admin}\``)
-      .setColor(supportbot.Embed.Colours.Warn);
+    if (!interaction.member.roles.cache.has(SupportStaff.id) && 
+        !interaction.member.roles.cache.has(Admin.id)) {
+      const NoPerms = new EmbedBuilder()
+        .setTitle('Invalid Permissions!')
+        .setDescription(`${msgconfig.Error.IncorrectPerms}\n\nRole Required: \`${supportbot.Roles.StaffMember.Staff}\` or \`${supportbot.Roles.StaffMember.Admin}\``)
+        .setColor(0xFF0000);
+      return interaction.reply({ embeds: [NoPerms], ephemeral: true });
+    }
 
-    if (
-      interaction.member.roles.cache.has(SupportStaff.id) ||
-      interaction.member.roles.cache.has(Admin.id)
-    ) {
-      const EmbedTitle = interaction.options.getString("title").replace(/\\n/g, '\n');
-      const EmbedSubject = interaction.options.getString("message").replace(/\\n/g, '\n');
-      const GeneralColour = interaction.options.getString("color") || supportbot.Embed.Colours.Default;
-      const EmbedThumbnail = interaction.options.getString("thumbnail");
-      const EmbedImage = interaction.options.getString("image");
-      const EmbedFields = interaction.options.getString("fields");
-      const EmbedFooter = interaction.options.getString("footer")?.replace(/\\n/g, '\n');
-      const EmbedFooterIcon = interaction.options.getString("footericon");
-      const EmbedAuthor = interaction.options.getString("author")?.replace(/\\n/g, '\n');
-      const EmbedAuthorIcon = interaction.options.getString("authoricon");
-      const EmbedAuthorURL = interaction.options.getString("authorurl");
-      const EmbedTimestamp = interaction.options.getBoolean("timestamp");
-      const InlineFields = interaction.options.getBoolean("inline");
+    const channel = interaction.options.getChannel('channel');
+    
+    // Initial message state
+    const messageData = {
+      type: 'embed',
+      title: 'New Embed',
+      description: 'Click the buttons below to edit this embed',
+      color: 0x5865F2,
+      fields: [],
+      footer: null,
+      thumbnail: null,
+      image: null,
+      timestamp: false
+    };
 
-      const EmbedMsg = new Discord.EmbedBuilder()
-        .setTitle(EmbedTitle)
-        .setDescription(EmbedSubject)
-        .setColor(GeneralColour)
-        .setThumbnail(EmbedThumbnail)
-        .setImage(EmbedImage);
+    // Create initial embed
+    function createEmbed() {
+      const embed = new EmbedBuilder()
+        .setTitle(messageData.title)
+        .setDescription(messageData.description)
+        .setColor(messageData.color);
 
-      if (EmbedFields) {
-        const fieldsArray = EmbedFields.split(';');
-        fieldsArray.forEach(field => {
-          const [title, value] = field.split('|');
-          if (title && value) {
-            EmbedMsg.addFields({ name: title.replace(/\\n/g, '\n'), value: value.replace(/\\n/g, '\n'), inline: InlineFields || false });
-          }
+      if (messageData.fields.length > 0) {
+        embed.addFields(messageData.fields);
+      }
+      if (messageData.footer) {
+        embed.setFooter({ text: messageData.footer });
+      }
+      if (messageData.thumbnail) {
+        embed.setThumbnail(messageData.thumbnail);
+      }
+      if (messageData.image) {
+        embed.setImage(messageData.image);
+      }
+      if (messageData.timestamp) {
+        embed.setTimestamp();
+      }
+
+      return embed;
+    }
+
+    // Create type selector
+    const typeRow = new ActionRowBuilder()
+      .addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('message_type')
+          .setPlaceholder('Select message type')
+          .addOptions([
+            {
+              label: 'Embed Message',
+              description: 'Send as an embedded message',
+              value: 'embed'
+            },
+            {
+              label: 'Text Message',
+              description: 'Send as a plain text message',
+              value: 'text'
+            }
+          ])
+      );
+
+    // Create button rows function
+    function createButtons(messageType) {
+      const buttons = [];
+      
+      if (messageType === 'embed') {
+        // Only show these buttons for embed mode
+        const row1 = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('edit_title')
+              .setLabel('Edit Title')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId('edit_description')
+              .setLabel('Edit Description')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId('edit_color')
+              .setLabel('Edit Color')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId('add_field')
+              .setLabel('Add Field')
+              .setStyle(ButtonStyle.Secondary)
+          );
+
+        const row2 = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('edit_footer')
+              .setLabel('Edit Footer')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId('edit_image')
+              .setLabel('Add Image')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId('edit_thumbnail')
+              .setLabel('Add Thumbnail')
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId('toggle_timestamp')
+              .setLabel('Toggle Timestamp')
+              .setStyle(ButtonStyle.Secondary)
+          );
+        
+        buttons.push(row1, row2);
+      } else {
+        // Text mode only shows edit text button
+        const textRow = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('edit_description')
+              .setLabel('Edit Text')
+              .setStyle(ButtonStyle.Secondary)
+          );
+        
+        buttons.push(textRow);
+      }
+
+      // Send button always shows
+      const sendRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('send_message')
+            .setLabel('Send')
+            .setStyle(ButtonStyle.Success)
+        );
+      
+      buttons.push(sendRow);
+      return buttons;
+    }
+
+    // Function to update the message preview
+    async function updatePreview(i) {
+      if (messageData.type === 'embed') {
+        await i.update({
+          content: 'Customize your message:',
+          embeds: [createEmbed()],
+          components: [typeRow, ...createButtons('embed')]
+        });
+      } else {
+        // For text mode, just show the text directly
+        await i.update({
+          content: messageData.description,
+          embeds: [],
+          components: [typeRow, ...createButtons('text')]
+        });
+      }
+    }
+
+    // Send initial message
+    const message = await interaction.reply({
+      content: messageData.type === 'text' ? messageData.description : 'Customize your message:',
+      components: [typeRow, ...createButtons(messageData.type)],
+      embeds: messageData.type === 'embed' ? [createEmbed()] : [],
+      ephemeral: true
+    });
+
+    // Create collector for interactions
+    const collector = message.createMessageComponentCollector({
+      time: 900000
+    });
+
+    collector.on('collect', async (i) => {
+      if (i.user.id !== interaction.user.id) {
+        return i.reply({ 
+          content: 'You cannot edit this message.', 
+          ephemeral: true 
         });
       }
 
-      if (EmbedFooter) {
-        EmbedMsg.setFooter({ text: EmbedFooter, iconURL: EmbedFooterIcon });
+      switch (i.customId) {
+        case 'message_type':
+          messageData.type = i.values[0];
+          await updatePreview(i);
+          break;
+
+        case 'edit_description':
+          const descModal = new ModalBuilder()
+            .setCustomId('desc_modal')
+            .setTitle(messageData.type === 'embed' ? 'Edit Description' : 'Edit Text');
+
+          descModal.addComponents(
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('desc_input')
+                  .setLabel(messageData.type === 'embed' ? 'Description' : 'Message Text')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setValue(messageData.description)
+                  .setMaxLength(4000)
+              )
+          );
+
+          await i.showModal(descModal);
+          break;
+
+        case 'edit_title':
+          const titleModal = new ModalBuilder()
+            .setCustomId('title_modal')
+            .setTitle('Edit Title');
+
+          titleModal.addComponents(
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('title_input')
+                  .setLabel('Title')
+                  .setStyle(TextInputStyle.Short)
+                  .setValue(messageData.title)
+                  .setMaxLength(256)
+              )
+          );
+
+          await i.showModal(titleModal);
+          break;
+
+        case 'edit_color':
+          const colorModal = new ModalBuilder()
+            .setCustomId('color_modal')
+            .setTitle('Edit Color');
+
+          colorModal.addComponents(
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('color_input')
+                  .setLabel('Color (HEX)')
+                  .setStyle(TextInputStyle.Short)
+                  .setPlaceholder('#FF0000')
+                  .setMinLength(6)
+                  .setMaxLength(7)
+                  .setValue(messageData.color.toString(16).padStart(6, '0'))
+              )
+          );
+
+          await i.showModal(colorModal);
+          break;
+
+        case 'add_field':
+          const fieldModal = new ModalBuilder()
+            .setCustomId('field_modal')
+            .setTitle('Add Field');
+
+          fieldModal.addComponents(
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('field_name')
+                  .setLabel('Field Name')
+                  .setStyle(TextInputStyle.Short)
+                  .setMaxLength(256)
+              ),
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('field_value')
+                  .setLabel('Field Value')
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setMaxLength(1024)
+              ),
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('field_inline')
+                  .setLabel('Inline? (true/false)')
+                  .setStyle(TextInputStyle.Short)
+                  .setValue('false')
+                  .setPlaceholder('true or false')
+              )
+          );
+
+          await i.showModal(fieldModal);
+          break;
+
+        case 'edit_footer':
+          const footerModal = new ModalBuilder()
+            .setCustomId('footer_modal')
+            .setTitle('Edit Footer');
+
+          footerModal.addComponents(
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('footer_input')
+                  .setLabel('Footer Text')
+                  .setStyle(TextInputStyle.Short)
+                  .setValue(messageData.footer || '')
+                  .setMaxLength(2048)
+              )
+          );
+
+          await i.showModal(footerModal);
+          break;
+
+        case 'edit_image':
+          const imageModal = new ModalBuilder()
+            .setCustomId('image_modal')
+            .setTitle('Add Image');
+
+          imageModal.addComponents(
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('image_input')
+                  .setLabel('Image URL')
+                  .setStyle(TextInputStyle.Short)
+                  .setValue(messageData.image || '')
+                  .setPlaceholder('https://example.com/image.png')
+              )
+          );
+
+          await i.showModal(imageModal);
+          break;
+
+        case 'edit_thumbnail':
+          const thumbnailModal = new ModalBuilder()
+            .setCustomId('thumbnail_modal')
+            .setTitle('Add Thumbnail');
+
+          thumbnailModal.addComponents(
+            new ActionRowBuilder()
+              .addComponents(
+                new TextInputBuilder()
+                  .setCustomId('thumbnail_input')
+                  .setLabel('Thumbnail URL')
+                  .setStyle(TextInputStyle.Short)
+                  .setValue(messageData.thumbnail || '')
+                  .setPlaceholder('https://example.com/thumbnail.png')
+              )
+          );
+
+          await i.showModal(thumbnailModal);
+          break;
+
+        case 'toggle_timestamp':
+          messageData.timestamp = !messageData.timestamp;
+          await updatePreview(i);
+          break;
+
+        case 'send_message':
+          try {
+            if (messageData.type === 'embed') {
+              await channel.send({ embeds: [createEmbed()] });
+            } else {
+              await channel.send(messageData.description);
+            }
+            await i.update({ 
+              content: 'Message sent successfully!', 
+              components: [], 
+              embeds: [] 
+            });
+            collector.stop();
+          } catch (error) {
+            await i.reply({ 
+              content: 'Failed to send message. Please check channel permissions.', 
+              ephemeral: true 
+            });
+          }
+          break;
+      }
+    });
+
+    // Handle modal submissions
+    interaction.client.on('interactionCreate', async (modal) => {
+      if (!modal.isModalSubmit()) return;
+      if (modal.user.id !== interaction.user.id) return;
+
+      switch (modal.customId) {
+        case 'title_modal':
+          messageData.title = modal.fields.getTextInputValue('title_input');
+          break;
+        case 'desc_modal':
+          messageData.description = modal.fields.getTextInputValue('desc_input');
+          break;
+        case 'color_modal':
+          messageData.color = parseColor(modal.fields.getTextInputValue('color_input'));
+          break;
+        case 'field_modal':
+          const inlineValue = modal.fields.getTextInputValue('field_inline').toLowerCase();
+          messageData.fields.push({
+            name: modal.fields.getTextInputValue('field_name'),
+            value: modal.fields.getTextInputValue('field_value'),
+            inline: inlineValue === 'true'
+          });
+          break;
+        case 'footer_modal':
+          messageData.footer = modal.fields.getTextInputValue('footer_input');
+          break;
+        case 'image_modal':
+          messageData.image = modal.fields.getTextInputValue('image_input');
+          break;
+        case 'thumbnail_modal':
+          messageData.thumbnail = modal.fields.getTextInputValue('thumbnail_input');
+          break;
+        default:
+          return;
       }
 
-      if (EmbedAuthor) {
-        EmbedMsg.setAuthor({ name: EmbedAuthor, iconURL: EmbedAuthorIcon, url: EmbedAuthorURL });
-      }
+      await updatePreview(modal);
+    });
 
-      if (EmbedTimestamp) {
-        EmbedMsg.setTimestamp();
-      }
-
-      interaction.reply({
-        embeds: [EmbedMsg],
-      });
-    } else {
-      return interaction.reply({ embeds: [NoPerms] });
-    }
-  },
+    collector.on('end', () => {
+      interaction.editReply({
+        content: 'Message editor timed out.',
+        components: [],
+        embeds: []
+      }).catch(() => {});
+    });
+  }
 });

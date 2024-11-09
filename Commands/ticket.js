@@ -9,6 +9,7 @@ const {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   ButtonStyle,
+  MessageCollector,
 } = require("discord.js");
 const yaml = require("js-yaml");
 
@@ -19,6 +20,23 @@ const msgconfig = yaml.load(fs.readFileSync("./Configs/messages.yml", "utf8"));
 
 const Command = require("../Structures/Command.js");
 const TicketNumberID = require("../Structures/TicketID.js");
+
+async function isBlacklisted(userId) {
+  let blacklistData;
+  try {
+    blacklistData = JSON.parse(fs.readFileSync("./Data/BlacklistedUsers.json", "utf8"));
+  } catch (error) {
+    console.error("Error reading BlacklistedUsers.json:", error);
+    return false; // Assume not blacklisted if there's an error
+  }
+  
+  if (!blacklistData || !Array.isArray(blacklistData.blacklistedUsers)) {
+    console.error("blacklistedUsers is not defined or is not an array");
+    return false;
+  }
+  
+  return blacklistData.blacklistedUsers.includes(userId);
+}
 
 async function getClockedInUsers(guild) {
   const clockedInUsers = new Set();
@@ -35,6 +53,60 @@ async function getClockedInUsers(guild) {
     }
   }
   return clockedInUsers;
+}
+
+async function askTicketQuestions(ticketChannel, interaction, questions) {
+  const answers = [];
+  let questionIndex = 0;
+
+  const sendNextQuestion = async () => {
+    if (questionIndex < questions.length) {
+
+      const questionsEmbed = new EmbedBuilder()
+        .setDescription(`**${questionIndex + 1}.** ${questions[questionIndex]}`)
+        .setColor(supportbot.Embed.Colours.General)
+
+      const questionMessage = await ticketChannel.send({
+        embeds: [questionsEmbed], 
+      });
+
+      const collector = new MessageCollector(ticketChannel, {
+        filter: (m) => m.author.id === interaction.user.id,
+        max: 1,
+        time: 60000,
+      });
+
+      collector.on("collect", async (message) => {
+        answers.push({ question: questions[questionIndex], answer: message.content });
+        questionIndex++;
+        await message.delete();
+        await questionMessage.delete();
+        sendNextQuestion();
+      });
+
+    } else {
+
+      const summaryEmbed = new EmbedBuilder()
+        .setTitle(msgconfig.Ticket.TicketQuestions.Details.Title)
+        .setDescription(msgconfig.Ticket.TicketQuestions.Details.Description.replace('%user%', interaction.user.id))
+        .setColor(supportbot.Embed.Colours.General)
+        .addFields(
+          answers.map((a) => ({
+            name: `Q: ${a.question}`,
+            value: `A: ${a.answer}`,
+            inline: false,
+          }))
+        )
+        .setTimestamp();
+
+      await ticketChannel.send({ 
+        embeds: [summaryEmbed] 
+      });
+    }
+  };
+
+  // Start asking the first question
+  sendNextQuestion();
 }
 
 async function assignTicketToUser(ticketChannel, Staff, Admin, interaction, attempts = 0) {
@@ -205,7 +277,16 @@ module.exports = new Command({
   permissions: cmdconfig.OpenTicket.Permission,
 
   async run(interaction) {
+    
     try {
+
+      if (await isBlacklisted(interaction.user.id)) {
+        return interaction.reply({
+          content: msgconfig.Ticket.Blacklisted,
+          ephemeral: true,
+        });
+      }
+
       let TicketReason = null;
       if (supportbot.Ticket.TicketReason) {
         TicketReason = interaction.reason || null; // Retrieve the reason from the interaction object
@@ -352,6 +433,14 @@ module.exports = new Command({
         }); 
     }
     
+      // Ask questions to the user after the ticket is opened
+      if (supportbot.Ticket.Questions.Enabled) {
+        const questions = supportbot.Ticket.Questions.List || [];
+        if (questions.length > 0) {
+          await askTicketQuestions(ticketChannel, interaction, questions);
+        }
+      }
+
       // Save ticket data
       TicketData.tickets.push({
         id: ticketChannel.id,
@@ -405,7 +494,6 @@ module.exports = new Command({
         )
         .setColor(supportbot.Embed.Colours.General);
 
-      // Add reason field if ticket reason is enabled
       if (supportbot.Ticket.TicketReason && TicketReason) {
         TicketMessage.addFields(
           { name: "Reason", value: TicketReason, inline: false }
@@ -422,6 +510,11 @@ module.exports = new Command({
           .setDescription("Close the ticket.")
           .setEmoji(supportbot.SelectMenus.Tickets.CloseEmoji)
           .setValue("ticketclose"),
+        new StringSelectMenuOptionBuilder()
+          .setLabel("Voice Channel")
+          .setDescription("Create a support voice channel.")
+          .setEmoji(supportbot.SelectMenus.Tickets.VCEmoji)
+          .setValue("supportvc"),
         new StringSelectMenuOptionBuilder()
           .setLabel("Archive")
           .setDescription("Archive the ticket.")
@@ -463,6 +556,7 @@ module.exports = new Command({
         components: [row2],
       });
 
+      
     } catch (error) {
       console.error("Error in run method:", error);
     }

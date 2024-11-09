@@ -13,9 +13,10 @@ class Client extends Discord.Client {
       intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
       ],
-      partials: [Partials.Channel]
+      partials: [Partials.Message, Partials.Channel]
     });
 
     this.commands = new Discord.Collection();
@@ -103,6 +104,10 @@ class Client extends Discord.Client {
 
     if (cmdconfig.Settings.Enabled === false) {
       tempCommandFiles = tempCommandFiles.filter(item => item !== "settings.js");
+    }    
+
+    if (cmdconfig.Mod.Enabled === false) {
+      tempCommandFiles = tempCommandFiles.filter(item => item !== "mod.js");
     }    
 
     const commandFiles = tempCommandFiles;

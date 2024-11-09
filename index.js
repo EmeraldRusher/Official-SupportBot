@@ -19,7 +19,7 @@ const supportbot = yaml.load(
 
 const Client = require("./Structures/Client.js");
 const client = new Client({
-  intents: ['Guilds', 'GuildMembers', 'GuildMessages']
+  intents: ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent']
 });
 
 client.start(supportbot.General.Token);

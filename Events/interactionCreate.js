@@ -130,7 +130,6 @@ module.exports = new Event("interactionCreate", async (client, interaction) => {
         });
     }
 }
-
   if (interaction.isStringSelectMenu()) {
     if (interaction.customId === "ticketcontrolpanel") {
       const selectedOption = interaction.values[0];
@@ -144,6 +143,89 @@ module.exports = new Event("interactionCreate", async (client, interaction) => {
           } else {
             console.error("[X] Close Command Not Found");
           }
+          break;
+
+          case "supportvc":
+            const ticketData = JSON.parse(fs.readFileSync("./Data/TicketData.json", "utf8"));
+            const ticketInfo = ticketData.tickets.find(t => t.id === interaction.channel.id);
+        
+            if (ticketInfo) {
+              const user = interaction.guild.members.cache.get(ticketInfo.user) || ticketInfo.user;
+              const claimedBy = interaction.guild.members.cache.get(ticketInfo.claimedBy) || ticketInfo.claimedBy;
+              const Admin = await interaction.guild.roles.fetch(supportbot.Roles.StaffMember.Admin);
+              const Staff = await interaction.guild.roles.fetch(supportbot.Roles.StaffMember.Staff);
+
+              const VCcategory = interaction.guild.channels.cache.find(
+                (c) => c.name === supportbot.VoiceTickets.Category || c.id === supportbot.VoiceTickets.Category
+              );
+      
+              if (!VCcategory) {
+                return interaction.reply({
+                  content: "The Support VC category does not exist!",
+                  ephemeral: true,
+                });
+              }
+
+              let username = user ? user.user.username : "Unknown User"; 
+
+              let SupportVoice = await interaction.guild.channels.create({
+                name: supportbot.VoiceTickets.Name.replace(/%username%/g, username),
+                type: Discord.ChannelType.GuildVoice,
+                parent: VCcategory,
+                permissionOverwrites: [
+                  {
+                    id: user,
+                    allow: [
+                      Discord.PermissionsBitField.Flags.Connect,
+                      Discord.PermissionsBitField.Flags.Speak,
+                      Discord.PermissionsBitField.Flags.ViewChannel,
+                    ],
+                  },
+                  {
+                    id: Staff,
+                    allow: [
+                      Discord.PermissionsBitField.Flags.Connect,
+                      Discord.PermissionsBitField.Flags.Speak,
+                      Discord.PermissionsBitField.Flags.ViewChannel,
+                    ],
+                  },
+                  {
+                    id: Admin,
+                    allow: [
+                      Discord.PermissionsBitField.Flags.Connect,
+                      Discord.PermissionsBitField.Flags.Speak,
+                      Discord.PermissionsBitField.Flags.ViewChannel,
+                    ],
+                  },
+                  {
+                    id: interaction.guild.id,
+                    deny: [Discord.PermissionsBitField.Flags.ViewChannel],
+                  },
+                ],
+              });
+
+              ticketInfo.voiceChannelId = SupportVoice.id;
+              
+              fs.writeFileSync("./Data/TicketData.json", JSON.stringify(ticketData, null, 2));
+              
+              const VCDeleteButton = new Discord.ButtonBuilder()
+                .setCustomId("deleteSupportVC")
+                .setLabel(supportbot.Buttons.Voice.TicketDeleteText)
+                .setEmoji(supportbot.Buttons.General.Delete)
+                .setStyle(supportbot.Buttons.General.DeleteStyle);
+              
+              const VCDeleteRow = new Discord.ActionRowBuilder().addComponents(VCDeleteButton);
+              
+              const vcmadeembed = new Discord.EmbedBuilder()
+                .setDescription(`> **Support VC Created:** <#${SupportVoice.id}>`)
+                .setColor(supportbot.Embed.Colours.Success);
+              
+              await interaction.reply({
+                embeds: [vcmadeembed],
+                components: [VCDeleteRow],
+              });
+
+            }
           break;
 
           case "archiveticket":
@@ -305,6 +387,64 @@ module.exports = new Event("interactionCreate", async (client, interaction) => {
       }
     }
   }
+
+  if (interaction.customId === 'deleteSupportVC') {
+    const ticketData = JSON.parse(fs.readFileSync("./Data/TicketData.json", "utf8"));
+    const ticketInfo = ticketData.tickets.find(t => t.id === interaction.channel.id);
+  
+    if (ticketInfo && ticketInfo.voiceChannelId) {
+      try {
+        const voiceChannel = await interaction.guild.channels.fetch(ticketInfo.voiceChannelId).catch(() => null);
+  
+        if (voiceChannel) {
+          await voiceChannel.delete();
+  
+          const successEmbed = new Discord.EmbedBuilder()
+            .setDescription('✅ Support voice channel has been successfully deleted!')
+            .setColor(supportbot.Embed.Colours.Success);
+  
+          await interaction.reply({
+            embeds: [successEmbed],
+            ephemeral: true,
+          });
+  
+          ticketInfo.voiceChannelId = null; 
+          fs.writeFileSync("./Data/TicketData.json", JSON.stringify(ticketData, null, 2));
+        } else {
+          const errorEmbed = new Discord.EmbedBuilder()
+            .setDescription('❌ The associated voice channel could not be found.')
+            .setColor(supportbot.Embed.Colours.Error);
+  
+          await interaction.reply({
+            embeds: [errorEmbed],
+            ephemeral: true,
+          });
+        }
+      } catch (error) {
+        console.error('Error deleting the Voice Channel:', error);
+  
+        const errorEmbed = new Discord.EmbedBuilder()
+          .setDescription('❌ **There was an error trying to delete this voice channel. Please try again later.**')
+          .setColor(supportbot.Embed.Colours.Error);
+  
+        await interaction.reply({
+          embeds: [errorEmbed],
+          ephemeral: true,
+        });
+      }
+    } else {
+      const errorEmbed = new Discord.EmbedBuilder()
+        .setDescription('⚠️ This button is not linked to a valid voice channel.')
+        .setColor(supportbot.Embed.Colours.Warn);
+  
+      await interaction.reply({
+        embeds: [errorEmbed],
+        ephemeral: true,
+      });
+    }
+  }
+  
+
 
   if (interaction.isButton()) {
     if (interaction.customId === "unarchiveTicket") {

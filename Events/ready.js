@@ -89,9 +89,7 @@ module.exports = new Event("ready", async (client, interaction) => {
 
   const roles = [
     supportbot.Roles.StaffMember.Admin,
-    supportbot.Roles.StaffMember.Staff,
-    supportbot.Roles.ModRoles.Blacklisted,
-    supportbot.Roles.ModRoles.Muted
+    supportbot.Roles.StaffMember.Staff
   ];
 
   if (supportbot.Roles.AutoRole.Role) roles.push(supportbot.Roles.AutoRole.Role);

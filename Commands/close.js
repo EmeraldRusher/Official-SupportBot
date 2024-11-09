@@ -179,7 +179,6 @@ async function collectReviewComment(interaction, ticketUserId) {
   const comment = commentCollection.first()?.content;
   return comment && comment.toLowerCase() !== "no" ? comment : "No Comment Provided";
 }
-
 async function handleCloseTicket(interaction, reason, ticket, TicketData) {
   const { getChannel } = interaction.client;
 
@@ -200,7 +199,49 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
   }
 
   try {
+    // Fetch all messages from the channel
+    let allMessages = [];
+    let lastId = null;
+    
+    while (true) {
+      const options = { limit: 100 };
+      if (lastId) {
+        options.before = lastId;
+      }
+      
+      const messages = await interaction.channel.messages.fetch(options);
+      if (messages.size === 0) break;
+      
+      allMessages = [...allMessages, ...messages.values()];
+      lastId = messages.last().id;
+      
+      if (messages.size < 100) break;
+    }
+
+    // Sort messages by timestamp
+    allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+    // Create transcript data
+    const transcriptData = allMessages.map(msg => ({
+      content: msg.content || "No content",
+      username: msg.author.username,
+      userId: msg.author.id,
+      avatar: msg.author.displayAvatarURL(),
+      timestamp: msg.createdAt.toISOString(),
+      attachments: Array.from(msg.attachments.values()).map(att => ({
+        url: att.url,
+        name: att.name
+      })),
+      embeds: msg.embeds.map(embed => ({
+        title: embed.title,
+        description: embed.description,
+        fields: embed.fields
+      }))
+    }));
+
+    // Update ticket status
     tickets.tickets[TicketData].open = false;
+    tickets.tickets[TicketData].messages = transcriptData;
     fs.writeFileSync("./Data/TicketData.json", JSON.stringify(tickets, null, 4));
 
     const transcriptEmbed = new Discord.EmbedBuilder()
@@ -210,25 +251,34 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
       .setDescription(
         `> **Ticket:** ${interaction.channel.name} (\`${interaction.channel.id}\`)\n` +
         `> **User:** ${tUser?.tag || "Unknown User"} (\`${tUser?.id || ticket.user}\`)\n` +
-        `> **Closed by:** <@${interaction.user.id}>`
+        `> **Closed by:** <@${interaction.user.id}>\n` +
+        `> **Message Count:** ${transcriptData.length}`
       )
       .addFields({ name: "Reason", value: `\`\`\`${reason}\`\`\``, inline: true });
 
-    let msgs = await interaction.channel.messages.fetch({ limit: 100 });
-    let html = createTranscriptHTML(ticket, msgs);
+    const html = createTranscriptHTML(
+      {
+        id: interaction.channel.id,
+        messages: transcriptData,
+        name: interaction.channel.name
+      },
+      reason
+    );
 
     const fileName = `${interaction.channel.id}-transcript.html`;
     fs.writeFileSync(`./Data/Transcripts/${fileName}`, html);
 
     await transcriptChannel.send({
       embeds: [transcriptEmbed],
-      files: [`./Data/Transcripts/${fileName}`],
-      spoiler: true, 
+      files: [{
+        attachment: `./Data/Transcripts/${fileName}`,
+        name: fileName,
+        spoiler: true
+      }]
     });
 
-    if (interaction.channel.type === Discord.ChannelType.GuildText) {
-      await interaction.channel.delete();
-    } else if (interaction.channel.type === Discord.ChannelType.PrivateThread) {
+    if (interaction.channel.type === Discord.ChannelType.GuildText ||
+        interaction.channel.type === Discord.ChannelType.PrivateThread) {
       await interaction.channel.delete();
     }
   } catch (err) {
@@ -238,10 +288,12 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
 }
 
 function createTranscriptHTML(ticket, reason) {
-  const messages = ticket.messages || [];
   return `
+    <!DOCTYPE html>
     <html>
       <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
         <style>
           body {
@@ -249,84 +301,107 @@ function createTranscriptHTML(ticket, reason) {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: white;
             margin: 0;
-            padding: 0;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
+            padding: 20px;
           }
           .container {
-            backdrop-filter: blur(10px);
-            background-color: rgba(0, 128, 0, 0.3);
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: rgba(0, 0, 0, 0.3);
             border-radius: 15px;
             padding: 20px;
-            margin: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            max-width: 1000px;
-            width: 100%;
-            margin: auto;
           }
           .message {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+          }
+          .message-header {
             display: flex;
             align-items: center;
             margin-bottom: 10px;
-            padding: 10px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
           }
           .avatar {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            margin-right: 10px;
-          }
-          .content {
-            flex: 1;
+            margin-right: 15px;
           }
           .username {
             font-weight: bold;
+            color: #4CAF50;
           }
           .timestamp {
-            font-size: 0.8em;
-            color: #bbb;
+            margin-left: auto;
+            color: #888;
+            font-size: 0.9em;
           }
-          .download-button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            text-align: center;
-            text-decoration: none;
+          .content {
+            word-break: break-word;
+          }
+          .embed {
+            border-left: 4px solid #4CAF50;
+            padding-left: 10px;
+            margin: 10px 0;
+            background-color: rgba(0, 0, 0, 0.2);
+          }
+          .attachment {
             display: inline-block;
-            font-size: 16px;
-            margin-top: 20px;
+            background-color: rgba(76, 175, 80, 0.1);
+            border: 1px solid #4CAF50;
             border-radius: 5px;
+            padding: 5px 10px;
+            margin: 5px 0;
+            color: #4CAF50;
+            text-decoration: none;
           }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1 class="text-2xl font-bold mb-4">Ticket Transcript</h1>
-          <p><strong>Server Name:</strong> Emerald Services</p>
-          <p><strong>Ticket:</strong> ${ticket.id}</p>
-          <p><strong>Messages:</strong> ${messages.length} Messages</p>
-          <div class="mt-4">
-            ${messages.map(msg => `
-              <div class="message">
-                <img src="${msg.avatar}" alt="User Avatar" class="avatar" />
-                <div class="content">
-                  <p class="username">${msg.username}</p>
-                  <p>${msg.content}</p>
-                  <p class="timestamp">${msg.timestamp}</p>
-                </div>
-              </div>`).join('')}
+          <div class="mb-6">
+            <h1 class="text-3xl font-bold mb-4">Ticket Transcript</h1>
+            <p><strong>Channel:</strong> ${ticket.name}</p>
+            <p><strong>Ticket ID:</strong> ${ticket.id}</p>
+            <p><strong>Message Count:</strong> ${ticket.messages.length}</p>
+            <p><strong>Close Reason:</strong> ${reason}</p>
           </div>
-          <a href="ticket-${ticket.id}.html" download class="download-button">Download Transcript</a>
+          
+          <div class="messages">
+            ${ticket.messages.map(msg => `
+              <div class="message">
+                <div class="message-header">
+                  <img src="${msg.avatar}" alt="Avatar" class="avatar">
+                  <span class="username">${msg.username}</span>
+                  <span class="timestamp">${new Date(msg.timestamp).toLocaleString()}</span>
+                </div>
+                <div class="content">
+                  ${msg.content}
+                  
+                  ${msg.embeds.map(embed => `
+                    <div class="embed">
+                      ${embed.title ? `<div class="font-bold">${embed.title}</div>` : ''}
+                      ${embed.description ? `<div>${embed.description}</div>` : ''}
+                      ${embed.fields.map(field => `
+                        <div class="mt-2">
+                          <strong>${field.name}:</strong>
+                          <div>${field.value}</div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  `).join('')}
+                  
+                  ${msg.attachments.map(att => `
+                    <a href="${att.url}" class="attachment" target="_blank">
+                      📎 ${att.name}
+                    </a>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
         </div>
       </body>
     </html>
   `;
 }
-
-

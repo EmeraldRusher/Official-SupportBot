@@ -229,8 +229,7 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
     if (interaction.channel.type === Discord.ChannelType.GuildText) {
       await interaction.channel.delete();
     } else if (interaction.channel.type === Discord.ChannelType.PrivateThread) {
-      await interaction.channel.setLocked(true);
-      await interaction.channel.setArchived(true);
+      await interaction.channel.delete();
     }
   } catch (err) {
     console.error("Error handling ticket close:", err);

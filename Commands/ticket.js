@@ -27,7 +27,7 @@ async function isBlacklisted(userId) {
     blacklistData = JSON.parse(fs.readFileSync("./Data/BlacklistedUsers.json", "utf8"));
   } catch (error) {
     console.error("Error reading BlacklistedUsers.json:", error);
-    return false; // Assume not blacklisted if there's an error
+    return false; 
   }
   
   if (!blacklistData || !Array.isArray(blacklistData.blacklistedUsers)) {
@@ -308,20 +308,6 @@ module.exports = new Command({
               color: supportbot.Embed.Colours.Warn,
             },
           ],
-          ephemeral: true,
-        });
-      }
-
-      if (User.roles.cache.has(supportbot.Roles.ModRoles.Blacklisted)) {
-        return interaction.reply({
-          content: msgconfig.Ticket.Blacklisted,
-          ephemeral: true,
-        });
-      }
-
-      if (User.roles.cache.has(supportbot.Roles.ModRoles.Muted)) {
-        return interaction.reply({
-          content: msgconfig.Ticket.Muted,
           ephemeral: true,
         });
       }

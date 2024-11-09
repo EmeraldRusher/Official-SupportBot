@@ -218,10 +218,8 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
       if (messages.size < 100) break;
     }
 
-    // Sort messages by timestamp
     allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
-    // Create transcript data
     const transcriptData = allMessages.map(msg => ({
       content: msg.content || "No content",
       username: msg.author.username,
@@ -239,7 +237,6 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
       }))
     }));
 
-    // Update ticket status
     tickets.tickets[TicketData].open = false;
     tickets.tickets[TicketData].messages = transcriptData;
     fs.writeFileSync("./Data/TicketData.json", JSON.stringify(tickets, null, 4));
@@ -272,7 +269,7 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
       embeds: [transcriptEmbed],
       files: [{
         attachment: `./Data/Transcripts/${fileName}`,
-        name: fileName,
+        name: `SPOILER_${fileName}`,
         spoiler: true
       }]
     });

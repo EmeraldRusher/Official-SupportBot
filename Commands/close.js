@@ -218,8 +218,10 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
       if (messages.size < 100) break;
     }
 
+    // Sort messages by timestamp
     allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
+    // Create transcript data
     const transcriptData = allMessages.map(msg => ({
       content: msg.content || "No content",
       username: msg.author.username,
@@ -237,6 +239,7 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
       }))
     }));
 
+    // Update ticket status
     tickets.tickets[TicketData].open = false;
     tickets.tickets[TicketData].messages = transcriptData;
     fs.writeFileSync("./Data/TicketData.json", JSON.stringify(tickets, null, 4));
@@ -282,6 +285,25 @@ async function handleCloseTicket(interaction, reason, ticket, TicketData) {
     console.error("Error handling ticket close:", err);
     interaction.followUp("An error occurred while closing the ticket.");
   }
+}
+
+function parseMarkdown(content) {
+  // Convert **bold** text to <strong> tags
+  content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Convert _italic_ text to <em> tags
+  content = content.replace(/_(.*?)_/g, '<em>$1</em>');
+  
+  // Convert inline `code` to <code> tags
+  content = content.replace(/`(.*?)`/g, '<code>$1</code>');
+  
+  // Convert [text](link) to <a> tags
+  content = content.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+  
+  // Convert multiline code blocks ```code``` to <pre><code> tags
+  content = content.replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>');
+  
+  return content;
 }
 
 function createTranscriptHTML(ticket, reason) {
@@ -373,7 +395,7 @@ function createTranscriptHTML(ticket, reason) {
                   <span class="timestamp">${new Date(msg.timestamp).toLocaleString()}</span>
                 </div>
                 <div class="content">
-                  ${msg.content}
+                  ${parseMarkdown(msg.content)}
                   
                   ${msg.embeds.map(embed => `
                     <div class="embed">
